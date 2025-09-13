@@ -1,10 +1,10 @@
 package request
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 )
 
 type RequestLine struct {
@@ -15,43 +15,60 @@ type RequestLine struct {
 
 type Request struct {
 	RequestLine RequestLine
+	state       string
 }
 
 var ErrInvalidReq = errors.New("Invaild")
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	ReadArray, err := io.ReadAll(reader)
-	if err != nil {
-		fmt.Println(err)
-	}
-	reqLineDict := parseRequestLine(ReadArray)
+	buffer := make([]byte, 8)
+	readFromIndex := 0
+	readFromParsed := 0
 
-	if reqLineDict["method"] != "GET" && reqLineDict["method"] != "POST" {
-		fmt.Println(err)
-		return nil, ErrInvalidReq
+	req := &Request{
+		state: "initialised",
 	}
 
-	reqLine := RequestLine{
-		HttpVersion:   reqLineDict["httpVersion"],
-		RequestTarget: reqLineDict["endpoint"],
-		Method:        reqLineDict["method"],
+	for req.state == "initialised" {
+		if readFromIndex == len(buffer) {
+			temp := buffer
+			buffer = make([]byte, readFromIndex*2)
+			copy(buffer[:readFromIndex], temp)
+		}
+
+		n, err := reader.Read(buffer[readFromIndex:])
+		if err != nil {
+			fmt.Println(err)
+		}
+		temp, err := req.parse(buffer)
+		if err != nil {
+			fmt.Println(err)
+			return req, err
+		}
+		readFromParsed += temp
+		readFromIndex += n
+
 	}
-	Request := Request{reqLine}
-	fmt.Println(Request.RequestLine)
-	return &Request, nil
+
+	return req, nil
 
 }
 
-func parseRequestLine(reqLine []byte) map[string]string {
+func (r *Request) parse(data []byte) (int, error) {
 
-	dict := make(map[string]string, 0)
+	index := bytes.Index(data, []byte("\r\n"))
+	if index == -1 {
+		return 0, nil
+	}
+	r.state = "done"
+	parsedParts := bytes.Split(data[:index], []byte(" "))
+	if len(parsedParts) != 3 {
+		return 0, ErrInvalidReq
+	}
+	r.RequestLine.Method = string(parsedParts[0])
+	r.RequestLine.RequestTarget = string(parsedParts[1])
+	r.RequestLine.HttpVersion = string(parsedParts[2])
 
-	splitArr := strings.Split(string(reqLine), "\r\n")[0]
-	reqLineArr := strings.Split(string(splitArr), " ")
-	dict["method"] = reqLineArr[0]
-	dict["endpoint"] = reqLineArr[1]
-	dict["httpVersion"] = strings.Split(reqLineArr[2], "/")[1]
-	fmt.Println(dict)
-	return dict
+	return index, nil
 
 }

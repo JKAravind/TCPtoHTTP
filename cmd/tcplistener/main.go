@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
+
+	"github.com/JKAravind/TCPtoHTTP/internal/request"
 )
 
 const port = ":42069"
@@ -24,46 +25,13 @@ func main() {
 		}
 		fmt.Println("Accepted connection from", conn.RemoteAddr())
 
-		linesChan := getLinesChannel(conn)
-
-		for line := range linesChan {
-			fmt.Println(line)
+		httpHeader, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Println(err)
 		}
+		fmt.Println("Request line: ")
+		fmt.Printf("Method: %v", httpHeader.RequestLine.HttpVersion)
+
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	lines := make(chan string)
-	go func() {
-		defer f.Close()
-		defer close(lines)
-		currentLineContents := ""
-		for {
-			flag := false
-			b := make([]byte, 8)
-			n, err := f.Read(b)
-			if err != nil {
-				if currentLineContents != "" {
-					currentLineContents += string(b[:n])
-					lines <- currentLineContents
-					return
-				}
-			}
-			for index, element := range b {
-				if element == '\n' {
-					currentLineContents += string(b[:index])
-					lines <- currentLineContents
-					currentLineContents = ""
-					currentLineContents += string(b[index+1 : n])
-					flag = true
-					break
-				}
-			}
-			if !flag {
-				currentLineContents += string(b[:n])
-			}
-		}
-	}()
-	return lines
 }
