@@ -15,6 +15,14 @@ func NewHeaders() Header {
 	return make(Header)
 }
 
+func (header Header) Get(nameOfKey string) (valueOfKey string, isAvail bool) {
+	valueOfKey, ok := header[strings.ToLower(nameOfKey)]
+	if !ok {
+		return "", ok
+	}
+	return valueOfKey, ok
+}
+
 func (header Header) Parse(data []byte) (n int, done bool, err error) {
 	// fmt.Println("what is coming", string(data))
 	readIndex := 0

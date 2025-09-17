@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/JKAravind/TCPtoHTTP/internal/headers"
 )
@@ -29,6 +30,7 @@ type Request struct {
 	RequestLine RequestLine
 	Header      headers.Header
 	state       requestState
+	Body        []byte
 }
 
 var ErrInvalidReq = errors.New("Invaild")
@@ -53,9 +55,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buffer[readFromIndex:])
 		if err != nil {
 			fmt.Println(err)
+			return req, err
 		}
 
-		temp, err := req.parse(buffer, readFromParsed)
+		temp, err := req.parse(buffer, readFromParsed, readFromIndex)
 		if err != nil {
 			fmt.Println(err)
 			return req, err
@@ -63,14 +66,12 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		readFromParsed += temp
 		readFromIndex += n
 	}
-
 	return req, nil
-
 }
 
-func (r *Request) parse(data []byte, startToParseFrom int) (int, error) {
+func (r *Request) parse(data []byte, startToParseFrom, startToReadFrom int) (int, error) {
+	fmt.Printf("data %s", string(data))
 	totalBytesParsed := 0
-	// fmt.Println("what is given as gata", string(data), startToParseFrom)
 
 	switch r.state {
 
@@ -99,10 +100,34 @@ func (r *Request) parse(data []byte, startToParseFrom int) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateBody
 		}
 		totalBytesParsed += consumed + 2
 		return consumed, nil
+
+	case requestStateBody:
+
+		bodyLength, ok := r.Header.Get("content-length")
+		if !ok {
+			r.state = requestStateDone
+			break
+		}
+		intBodyLength, _ := strconv.Atoi(bodyLength)
+
+		remaining := intBodyLength - len(r.Body)
+		toRead := len(data[startToParseFrom:])
+		if toRead > remaining {
+			toRead = remaining
+		}
+
+		r.Body = data[startToParseFrom : startToReadFrom+toRead]
+
+		if len(r.Body) == intBodyLength {
+			r.state = requestStateDone
+			return intBodyLength, nil
+		}
+		return 0, nil
+
 	}
 	return 0, nil
 }

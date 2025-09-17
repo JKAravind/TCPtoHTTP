@@ -29,11 +29,18 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println("Request line: ")
-		fmt.Printf("+%v", httpHeader.RequestLine)
-		for key, value := range httpHeader.Header {
-			fmt.Printf("%vkey: %v\n", key, value)
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", httpHeader.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", httpHeader.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", httpHeader.RequestLine.HttpVersion)
+
+		fmt.Println("Headers:")
+		for k, v := range httpHeader.Header {
+			fmt.Printf("- %s: %s\n", k, v)
 		}
+
+		fmt.Println("Body:")
+		fmt.Println(string(httpHeader.Body))
 
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
