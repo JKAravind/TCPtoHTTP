@@ -16,7 +16,7 @@ func NewHeaders() Header {
 }
 
 func (header Header) Parse(data []byte) (n int, done bool, err error) {
-
+	// fmt.Println("what is coming", string(data))
 	readIndex := 0
 	isDone := false
 
@@ -33,22 +33,19 @@ func (header Header) Parse(data []byte) (n int, done bool, err error) {
 		}
 		name, value, err := ParseHeader(data[readIndex : readIndex+index])
 		if err != nil {
-			fmt.Println("enterthr is scorp")
 			return 0, false, err
 		}
 		name = strings.ToLower(name)
 		_, ok := header[name]
 		if ok {
-			header[name] = fmt.Sprintf("%s,%s", header[name], value)
+			header[name] = fmt.Sprintf("%s , %s", header[name], value)
 		} else {
 			header[name] = value
 
 		}
-		fmt.Println(name, value, readIndex, index)
 		readIndex += index + 2
 
 	}
-	fmt.Println(header)
 	return readIndex, isDone, nil
 
 }

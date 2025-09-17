@@ -30,7 +30,10 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println("Request line: ")
-		fmt.Printf("Method: %v", httpHeader.RequestLine.HttpVersion)
+		fmt.Printf("+%v", httpHeader.RequestLine)
+		for key, value := range httpHeader.Header {
+			fmt.Printf("%vkey: %v\n", key, value)
+		}
 
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
