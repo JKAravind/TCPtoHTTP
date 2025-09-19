@@ -46,18 +46,20 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	}
 
 	for req.state != requestStateDone {
+		fmt.Println("reading", req.state)
 		if readFromIndex == len(buffer) {
 			temp := buffer
 			buffer = make([]byte, readFromIndex*2)
 			copy(buffer[:readFromIndex], temp)
 		}
 
+		fmt.Println("going to read")
 		n, err := reader.Read(buffer[readFromIndex:])
 		if err != nil {
 			fmt.Println(err)
 			return req, err
 		}
-
+		fmt.Println("going to enetr")
 		temp, err := req.parse(buffer, readFromParsed, readFromIndex)
 		if err != nil {
 			fmt.Println(err)
@@ -70,7 +72,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte, startToParseFrom, startToReadFrom int) (int, error) {
-	fmt.Printf("data %s", string(data))
+	fmt.Println("enetred Parse", string(data), r.state)
 	totalBytesParsed := 0
 
 	switch r.state {
@@ -100,6 +102,11 @@ func (r *Request) parse(data []byte, startToParseFrom, startToReadFrom int) (int
 			return 0, err
 		}
 		if done {
+			bodyLength, ok := r.Header.Get("content-length")
+			if !ok || bodyLength == "0" {
+				r.state = requestStateDone
+				return 0, nil
+			}
 			r.state = requestStateBody
 		}
 		totalBytesParsed += consumed + 2
@@ -110,7 +117,7 @@ func (r *Request) parse(data []byte, startToParseFrom, startToReadFrom int) (int
 		bodyLength, ok := r.Header.Get("content-length")
 		if !ok {
 			r.state = requestStateDone
-			break
+			return 0, nil
 		}
 		intBodyLength, _ := strconv.Atoi(bodyLength)
 
