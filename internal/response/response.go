@@ -2,7 +2,7 @@ package response
 
 import (
 	"fmt"
-	"io"
+	"net"
 	"strconv"
 
 	"github.com/JKAravind/TCPtoHTTP/internal/headers"
@@ -10,26 +10,29 @@ import (
 
 type StatusCode int
 
+type Writer struct {
+	Connection net.Conn
+}
+
 const (
-	statusSuccess    StatusCode = 200
-	statusWrong      StatusCode = 400
-	statusServerFail StatusCode = 500
+	StatusSuccess    StatusCode = 200
+	StatusWrong      StatusCode = 400
+	StatusServerFail StatusCode = 500
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-	var write []byte = []byte{}
+func (wr *Writer) WriteStatusLine(statusCode StatusCode) error {
+	var write []byte
 	switch statusCode {
-	case statusSuccess:
+	case StatusSuccess:
 		fmt.Println("writing this to the rcurl client")
 		write = []byte("HTTP/1.1 200 OK\r\n")
-	case statusWrong:
+	case StatusWrong:
 		write = []byte("HTTP/1.1 400 Bad Request\r\n")
-	case statusServerFail:
+	case StatusServerFail:
 		write = []byte("HTTP/1.1 500 Internal Server Error\r\n")
 	}
-	n, err := w.Write(write)
+	n, err := wr.Connection.Write(write)
 	fmt.Println("wrote bytes:", n, "err:", err)
-
 	return err
 }
 
@@ -37,18 +40,21 @@ func GetDefaultHeaders(contentLen int) headers.Header {
 	responseHeader := headers.NewHeaders()
 	responseHeader["Content-Length"] = strconv.Itoa(contentLen)
 	responseHeader["Connection"] = "close"
-
-	responseHeader["Content-Type"] = "text/plain"
+	responseHeader["Content-Type"] = "text/html"
 
 	return responseHeader
 }
-func WriteHeaders(w io.Writer, headers headers.Header) error {
+func (writer *Writer) WriteHeaders(headers headers.Header) error {
 
 	for key, value := range headers {
 		element := fmt.Sprintf("%s: %s\r\n", key, value)
-		_, _ = w.Write([]byte(element))
+		_, _ = writer.Connection.Write([]byte(element))
 	}
-	_, err := w.Write([]byte("\r\n"))
+	_, err := writer.Connection.Write([]byte("\r\n"))
 	return err
 
+}
+
+func (wr *Writer) WriteBody(p []byte) (int, error) {
+	return wr.Connection.Write(p)
 }
