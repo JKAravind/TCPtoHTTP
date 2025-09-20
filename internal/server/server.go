@@ -74,42 +74,54 @@ func (s *Server) listen(handler Handler) {
 func (s *Server) handle(conn net.Conn, handler Handler) {
 	defer conn.Close()
 
-	fmt.Println("ready to read")
-
+	// Parse the request
 	req, err := request.RequestFromReader(conn)
-	fmt.Println("read Over")
-
 	if err != nil {
-		reqError := &HandlerError{StatusCode: 400, Message: "print Bad Req"}
-		writeHandlerErr(conn, reqError)
-		s.closed.Store(true)
-		return
-	}
-	fmt.Println("Received request:")
-	var buf bytes.Buffer
-	reqError := handler(&buf, *req)
-	if reqError != nil {
-		writeHandlerErr(conn, reqError)
+		writeHandlerErr(conn, &HandlerError{
+			StatusCode: 400,
+			Message:    "Bad Request\n",
+		})
 		return
 	}
 
+	// Prepare a buffer for the response body
+	var body bytes.Buffer
+
+	// Call the handler
+	if herr := handler(&body, *req); herr != nil {
+		writeHandlerErr(conn, herr)
+		return
+	}
+
+	// Use bufio.Writer to efficiently write headers + body
 	writer := bufio.NewWriter(conn)
 
+	// Write status line
 	_ = response.WriteStatusLine(writer, response.StatusCode(200))
 
-	headers := response.GetDefaultHeaders(buf.Len())
+	// Write headers (Content-Length includes body)
+	headers := response.GetDefaultHeaders(body.Len())
 	_ = response.WriteHeaders(writer, headers)
 
-	writer.Write(buf.Bytes())
+	// Write body
+	writer.Write(body.Bytes())
 
-	// No body
+	// Flush everything to the client
 	writer.Flush()
 }
 
-func writeHandlerErr(conn io.Writer, handlerError *HandlerError) {
+// writeHandlerErr writes error responses consistently
+func writeHandlerErr(conn net.Conn, herr *HandlerError) {
 
-	_ = response.WriteStatusLine(conn, response.StatusCode(handlerError.StatusCode))
-	headers := response.GetDefaultHeaders(0)
+	// Write status line
+	_ = response.WriteStatusLine(conn, response.StatusCode(herr.StatusCode))
+
+	// Write headers
+	headers := response.GetDefaultHeaders(len(herr.Message))
 	_ = response.WriteHeaders(conn, headers)
 
+	// Write error body
+	conn.Write([]byte(herr.Message))
+
+	// Flush to client
 }

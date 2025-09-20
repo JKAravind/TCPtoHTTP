@@ -23,7 +23,7 @@ func main() {
 		case "/myproblem":
 			return &server.HandlerError{StatusCode: 500, Message: "Woopsie, my bad\n"}
 		default:
-			fmt.Fprint(w, "All good, frfr\r\n")
+			fmt.Fprint(w, "All good, frfr\r\n") // writes to body buffer
 			return nil
 		}
 	}
